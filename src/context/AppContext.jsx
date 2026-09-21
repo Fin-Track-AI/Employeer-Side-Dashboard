@@ -163,8 +163,36 @@ export const AppProvider = ({ children }) => {
   const approvedClaims = claims.filter((c) => c.status === 'Approved' || c.status === 'Paid');
   const rejectedClaims = claims.filter((c) => c.status === 'Rejected');
 
+  // Helper to validate state transitions in web app (BR-14)
+  const validateTransition = (currentStatus, targetStatus) => {
+    if (currentStatus === 'Paid' || currentStatus === 'Reimbursed') {
+      addToast({
+        type: 'error',
+        title: 'Transition Blocked (BR-14)',
+        message: `Claim status '${currentStatus}' is in a terminal state and cannot be altered.`,
+      });
+      return false;
+    }
+
+    if (currentStatus === 'Rejected' && (targetStatus === 'Paid' || targetStatus === 'Reimbursed' || targetStatus === 'Approved')) {
+      addToast({
+        type: 'error',
+        title: 'Transition Blocked (BR-14)',
+        message: `Cannot transition from '${currentStatus}' directly to '${targetStatus}'.`,
+      });
+      return false;
+    }
+
+    return true;
+  };
+
   // Approve Claim Handler (Direct MongoDB Backend sync)
   const approveClaim = async (claimId, adminNotes = '') => {
+    const targetClaim = claims.find((c) => c.id === claimId);
+    if (targetClaim && !validateTransition(targetClaim.status, 'Approved')) {
+      return false;
+    }
+
     const defaultNotes = adminNotes || 'Approved per company reimbursement policy guidelines.';
 
     // Optimistic UI update
@@ -190,12 +218,12 @@ export const AppProvider = ({ children }) => {
 
       addToast({
         type: 'success',
-        title: 'Claim Approved',
+        title: 'Claim Approved (BR-13)',
         message: `Claim ${claimId} approved successfully and updated in employee mobile app.`,
       });
 
-      // Background re-fetch to confirm consistency
       fetchRealClaims();
+      return true;
     } catch (err) {
       console.error('Error updating claim status:', err);
       addToast({
@@ -203,13 +231,18 @@ export const AppProvider = ({ children }) => {
         title: 'Sync Failed',
         message: err.message || 'Could not update claim status in backend.',
       });
-      // Rollback or re-fetch
       fetchRealClaims();
+      return false;
     }
   };
 
   // Reject Claim Handler (Requires mandatory reason, Direct MongoDB Backend sync)
   const rejectClaim = async (claimId, rejectionReason) => {
+    const targetClaim = claims.find((c) => c.id === claimId);
+    if (targetClaim && !validateTransition(targetClaim.status, 'Rejected')) {
+      return false;
+    }
+
     if (!rejectionReason || !rejectionReason.trim()) {
       addToast({
         type: 'error',
@@ -245,7 +278,7 @@ export const AppProvider = ({ children }) => {
 
       addToast({
         type: 'error',
-        title: 'Claim Rejected',
+        title: 'Claim Rejected (BR-13)',
         message: `Claim ${claimId} rejected. Reason synced to employee mobile app.`,
       });
 
@@ -263,8 +296,73 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Mark Claim as Paid (Disbursement sync)
+  // BR-13: Request Additional Info Handler
+  const requestInfoOnClaim = async (claimId, questionNote) => {
+    const targetClaim = claims.find((c) => c.id === claimId);
+    if (targetClaim && !validateTransition(targetClaim.status, 'Info Requested')) {
+      return false;
+    }
+
+    if (!questionNote || !questionNote.trim()) {
+      addToast({
+        type: 'error',
+        title: 'Request Info Failed',
+        message: 'A note specifying the requested information is required.',
+      });
+      return false;
+    }
+
+    const question = questionNote.trim();
+
+    // Optimistic UI update
+    setClaims((prev) =>
+      prev.map((c) =>
+        c.id === claimId
+          ? {
+              ...c,
+              status: 'Info Requested',
+              requestedInfoNote: question,
+              adminNotes: `Info Requested: ${question}`,
+              updatedAt: new Date().toISOString(),
+            }
+          : c
+      )
+    );
+
+    try {
+      await api.updateClaimStatus(claimId, {
+        status: 'Info Requested',
+        requestedInfoNote: question,
+        note: question,
+      });
+
+      addToast({
+        type: 'info',
+        title: 'Info Requested (BR-13)',
+        message: `Question sent to employee for claim ${claimId}. Mobile app updated.`,
+      });
+
+      fetchRealClaims();
+      return true;
+    } catch (err) {
+      console.error('Error requesting info:', err);
+      addToast({
+        type: 'error',
+        title: 'Sync Failed',
+        message: err.message || 'Could not update request info in backend.',
+      });
+      fetchRealClaims();
+      return false;
+    }
+  };
+
+  // Mark Claim as Paid / Reimbursed (Disbursement sync)
   const markClaimAsPaid = async (claimId) => {
+    const targetClaim = claims.find((c) => c.id === claimId);
+    if (targetClaim && !validateTransition(targetClaim.status, 'Paid')) {
+      return false;
+    }
+
     // Optimistic update
     setClaims((prev) =>
       prev.map((c) =>
@@ -286,11 +384,12 @@ export const AppProvider = ({ children }) => {
 
       addToast({
         type: 'success',
-        title: 'Claim Settled & Paid',
-        message: `Claim ${claimId} marked as Paid. Status updated for employee.`,
+        title: 'Claim Settled & Reimbursed (BR-14)',
+        message: `Claim ${claimId} marked as Reimbursed. Status updated for employee.`,
       });
 
       fetchRealClaims();
+      return true;
     } catch (err) {
       console.error('Error marking claim as paid:', err);
       addToast({
@@ -299,6 +398,7 @@ export const AppProvider = ({ children }) => {
         message: err.message || 'Could not update payment in backend.',
       });
       fetchRealClaims();
+      return false;
     }
   };
 
@@ -406,6 +506,7 @@ export const AppProvider = ({ children }) => {
         rejectedClaims,
         approveClaim,
         rejectClaim,
+        requestInfoOnClaim,
         markClaimAsPaid,
         addEmployee,
         updateBudget,

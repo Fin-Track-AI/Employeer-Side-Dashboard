@@ -4,9 +4,10 @@ import { ClaimTable } from '../components/claims/ClaimTable';
 import { ClaimCards } from '../components/claims/ClaimCards';
 import { EmptyState } from '../components/common/EmptyState';
 import { useApp } from '../context/AppContext';
+import { exportApprovedClaimsCSV, exportApprovedClaimsPDF } from '../utils/exportUtils';
 
 export const ClaimsView = ({ onOpenClaim, onRejectClaim }) => {
-  const { claims, employees } = useApp();
+  const { claims, employees, company } = useApp();
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -45,9 +46,9 @@ export const ClaimsView = ({ onOpenClaim, onRejectClaim }) => {
 
   const counts = {
     all: claims.length,
-    pending: claims.filter((c) => c.status === 'Pending').length,
+    pending: claims.filter((c) => c.status === 'Pending' || c.status === 'Submitted' || c.status === 'In Review').length,
     approved: claims.filter((c) => c.status === 'Approved').length,
-    paid: claims.filter((c) => c.status === 'Paid').length,
+    paid: claims.filter((c) => c.status === 'Paid' || c.status === 'Reimbursed').length,
     rejected: claims.filter((c) => c.status === 'Rejected').length,
   };
 
@@ -66,6 +67,8 @@ export const ClaimsView = ({ onOpenClaim, onRejectClaim }) => {
         departments={departments}
         categories={categories}
         onReset={handleReset}
+        onExportCSV={() => exportApprovedClaimsCSV(claims)}
+        onExportPDF={() => exportApprovedClaimsPDF(claims, company?.name || 'FinTrack Enterprise')}
         counts={counts}
       />
 
