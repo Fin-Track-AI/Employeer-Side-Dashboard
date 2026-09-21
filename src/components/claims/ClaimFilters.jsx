@@ -1,5 +1,5 @@
 import React from 'react';
-import { Filter, RotateCcw } from 'lucide-react';
+import { Filter, RotateCcw, Download, FileText } from 'lucide-react';
 import { SearchInput } from '../common/SearchInput';
 
 export const ClaimFilters = ({
@@ -14,6 +14,8 @@ export const ClaimFilters = ({
   departments = [],
   categories = [],
   onReset,
+  onExportCSV,
+  onExportPDF,
   counts = {},
 }) => {
   const statusTabs = [
@@ -157,6 +159,30 @@ export const ClaimFilters = ({
             Reset filters
           </button>
         )}
+
+        {/* BR-15 Payroll Export Buttons */}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <button
+            type="button"
+            onClick={onExportCSV}
+            className="btn btn-secondary btn-sm"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700 }}
+            title="Export Approved Claims to CSV (BR-15)"
+          >
+            <Download size={14} />
+            Export CSV
+          </button>
+          <button
+            type="button"
+            onClick={onExportPDF}
+            className="btn btn-primary btn-sm"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700 }}
+            title="Export Approved Claims Payroll PDF Report (BR-15)"
+          >
+            <FileText size={14} />
+            Export PDF
+          </button>
+        </div>
       </div>
     </div>
   );

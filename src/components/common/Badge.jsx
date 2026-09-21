@@ -12,11 +12,20 @@ export const StatusBadge = ({ status }) => {
     );
   }
 
-  if (normStatus === 'pending') {
+  if (normStatus === 'pending' || normStatus === 'submitted' || normStatus === 'in review') {
     return (
       <span className="badge badge-pending">
         <span className="badge-dot" />
-        Pending Review
+        {normStatus === 'in review' ? 'In Review' : normStatus === 'submitted' ? 'Submitted' : 'Pending Review'}
+      </span>
+    );
+  }
+
+  if (normStatus === 'info requested' || normStatus === 'action required') {
+    return (
+      <span className="badge badge-pending" style={{ background: '#FFF7ED', color: '#C2410C', borderColor: '#FFEDD5' }}>
+        <span className="badge-dot" style={{ background: '#EA580C' }} />
+        Info Requested
       </span>
     );
   }
@@ -30,11 +39,11 @@ export const StatusBadge = ({ status }) => {
     );
   }
 
-  if (normStatus === 'paid') {
+  if (normStatus === 'paid' || normStatus === 'reimbursed') {
     return (
       <span className="badge badge-paid">
         <span className="badge-dot" />
-        Paid / Reimbursed
+        Reimbursed
       </span>
     );
   }
