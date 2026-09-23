@@ -46,7 +46,15 @@ export const AppProvider = ({ children }) => {
 
   const [employees, setEmployees] = useState(() => {
     const saved = localStorage.getItem(`${STORAGE_KEY}_employees`);
-    return saved ? JSON.parse(saved) : initialEmployees;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && !parsed.some((e) => e.id && e.id.startsWith('EMP-10'))) {
+          return parsed;
+        }
+      } catch (_) {}
+    }
+    return [];
   });
 
   const [claims, setClaims] = useState(() => {
@@ -54,8 +62,10 @@ export const AppProvider = ({ children }) => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        // Exclude any legacy mock claims (CLM-100x)
-        if (Array.isArray(parsed) && !parsed.some(c => c.id && c.id.startsWith('CLM-100'))) {
+        if (
+          Array.isArray(parsed) &&
+          !parsed.some((c) => c.id && (c.id.startsWith('CLM-100') || c.id.startsWith('claim_17900196') || c.id.startsWith('claim_1790056')))
+        ) {
           return parsed;
         }
       } catch (_) {}
@@ -141,8 +151,8 @@ export const AppProvider = ({ children }) => {
   // Fetch real registered employees from backend
   const fetchRealEmployees = async () => {
     try {
-      const backendEmployees = await api.getEmployees();
-      if (Array.isArray(backendEmployees) && backendEmployees.length > 0) {
+      const backendEmployees = await api.getEmployees(company?.id);
+      if (Array.isArray(backendEmployees)) {
         setEmployees(backendEmployees);
         localStorage.setItem(`${STORAGE_KEY}_employees`, JSON.stringify(backendEmployees));
         setCompany((prev) => ({
@@ -159,7 +169,7 @@ export const AppProvider = ({ children }) => {
   const fetchInviteCodes = async () => {
     try {
       const codes = await api.getInviteCodes(company?.id);
-      if (Array.isArray(codes) && codes.length > 0) {
+      if (Array.isArray(codes)) {
         setInviteCodes(codes);
         localStorage.setItem(`${STORAGE_KEY}_inviteCodes`, JSON.stringify(codes));
       }
@@ -204,11 +214,16 @@ export const AppProvider = ({ children }) => {
 
   // Initial load & periodic background sync every 10s
   useEffect(() => {
-    // Purge any stale mock claims immediately
+    // Purge any stale mock claims & mock employees immediately
     const saved = localStorage.getItem(`${STORAGE_KEY}_claims`);
-    if (saved && saved.includes('CLM-100')) {
+    if (saved && (saved.includes('CLM-100') || saved.includes('claim_17900196') || saved.includes('claim_1790056'))) {
       localStorage.removeItem(`${STORAGE_KEY}_claims`);
       setClaims([]);
+    }
+    const savedEmps = localStorage.getItem(`${STORAGE_KEY}_employees`);
+    if (savedEmps && savedEmps.includes('EMP-10')) {
+      localStorage.removeItem(`${STORAGE_KEY}_employees`);
+      setEmployees([]);
     }
 
     fetchRealClaims();
@@ -217,6 +232,7 @@ export const AppProvider = ({ children }) => {
 
     const interval = setInterval(() => {
       fetchRealClaims(false);
+      fetchRealEmployees();
     }, 10000);
 
     return () => clearInterval(interval);

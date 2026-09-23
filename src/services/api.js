@@ -159,6 +159,27 @@ export const api = {
     }
   },
 
+  /**
+   * Fetch real enrolled employees for company from backend
+   */
+  getEmployees: async (companyId) => {
+    await resolveApiBaseUrl();
+    try {
+      const url = companyId
+        ? `${activeBaseUrl}/employer/employees?companyId=${encodeURIComponent(companyId)}`
+        : `${activeBaseUrl}/employer/employees`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error('Failed to fetch employees');
+      }
+      const data = await res.json();
+      return data.data?.employees || [];
+    } catch (err) {
+      console.warn('Backend getEmployees error:', err.message);
+      return [];
+    }
+  },
+
 
   /**
    * Send 6-digit OTP to work email
