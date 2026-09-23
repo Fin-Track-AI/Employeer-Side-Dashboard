@@ -12,12 +12,17 @@ import {
   AlertCircle,
   HelpCircle,
   Tag,
+  ZoomIn,
+  Image as ImageIcon,
+  Eye,
 } from 'lucide-react';
 import { Drawer } from '../common/Drawer';
+import { Modal } from '../common/Modal';
 import { StatusBadge, CategoryBadge } from '../common/Badge';
 import { Button } from '../common/Button';
 import { useApp } from '../../context/AppContext';
 import { RequestInfoModal } from './RequestInfoModal';
+import { api } from '../../services/api';
 
 export const ClaimDrawer = ({
   claim,
@@ -29,8 +34,21 @@ export const ClaimDrawer = ({
   const [adminNote, setAdminNote] = useState('');
   const [showReceiptZoom, setShowReceiptZoom] = useState(false);
   const [isRequestInfoModalOpen, setIsRequestInfoModalOpen] = useState(false);
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   if (!claim) return null;
+
+  const apiBase = api.getBaseUrl();
+  const rawImgUrl = claim.receipt?.imageUrl;
+  let receiptImageUrl = null;
+  if (rawImgUrl) {
+    receiptImageUrl = rawImgUrl.startsWith('http')
+      ? rawImgUrl
+      : `${apiBase.replace(/\/$/, '')}${rawImgUrl.startsWith('/') ? '' : '/'}${rawImgUrl}`;
+  } else if (claim.claimId || claim.id) {
+    receiptImageUrl = `${apiBase.replace(/\/$/, '')}/claims/${claim.claimId || claim.id}/receipt-image`;
+  }
 
   const isPending = claim.status === 'Pending' || claim.status === 'Submitted' || claim.status === 'In Review';
   const isApproved = claim.status === 'Approved';
@@ -437,83 +455,151 @@ export const ClaimDrawer = ({
                 </div>
               </div>
 
-              {/* Document File Preview */}
-              <div
-                style={{
-                  padding: '12px',
-                  borderRadius: 'var(--radius-md)',
-                  background: 'var(--bg-surface-subtle)',
-                  border: '1px dashed var(--border-color)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <FileText size={20} color="var(--color-primary)" />
-                  <div>
-                    <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)' }}>
-                      {claim.receipt?.fileName || 'Attached_Receipt.pdf'}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>PDF Invoice • 248 KB • Stored encrypted</div>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setShowReceiptZoom(!showReceiptZoom)}
-                  className="icon-btn"
-                  title="Preview Document"
-                >
-                  <ExternalLink size={15} />
-                </button>
-              </div>
-
-              {/* Interactive Document Zoom Overlay */}
-              {showReceiptZoom && (
+              {/* Actual Attached Bill / Receipt Image Preview */}
+              {receiptImageUrl && !imgError ? (
                 <div
                   style={{
-                    marginTop: 12,
-                    padding: 16,
-                    background: '#FFFFFF',
-                    border: '1px solid var(--border-color)',
                     borderRadius: 'var(--radius-md)',
-                    textAlign: 'center',
+                    overflow: 'hidden',
+                    border: '1px solid var(--border-color)',
+                    background: '#0B1120',
+                    marginBottom: 12,
                   }}
                 >
-                  <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8, color: '#0F172A' }}>
-                    TAX INVOICE — {claim.receipt?.merchant?.toUpperCase()}
-                  </div>
-                  <div style={{ fontSize: 11, color: '#64748B', marginBottom: 12 }}>
-                    GSTIN: {claim.receipt?.gstin} • Bill No: {claim.receipt?.invoiceNumber}
-                  </div>
+                  {/* Image Viewport */}
                   <div
                     style={{
-                      padding: '12px',
-                      background: '#F8FAFC',
-                      borderRadius: 'var(--radius-sm)',
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: 12,
-                      textAlign: 'left',
-                      marginBottom: 12,
+                      position: 'relative',
+                      maxHeight: '260px',
+                      overflow: 'hidden',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: '#090D16',
                     }}
+                    onClick={() => setIsImageModalOpen(true)}
+                    title="Click to view full receipt image"
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <span>Total Amount Billed:</span>
-                      <strong>₹{claim.amount.toLocaleString('en-IN')}</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748B', fontSize: 11 }}>
-                      <span>CGST + SGST (18% / 5%):</span>
-                      <span>₹{claim.receipt?.tax?.toLocaleString('en-IN')}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748B', fontSize: 11 }}>
-                      <span>Payment Mode:</span>
-                      <span>Corporate UPI / Card</span>
+                    <img
+                      src={receiptImageUrl}
+                      alt={claim.receipt?.merchant || 'Bill Receipt'}
+                      onError={() => setImgError(true)}
+                      style={{
+                        width: '100%',
+                        maxHeight: '260px',
+                        objectFit: 'contain',
+                        display: 'block',
+                      }}
+                    />
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'rgba(15, 23, 42, 0.45)',
+                        opacity: 0,
+                        transition: 'opacity 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        color: '#FFFFFF',
+                        fontWeight: 600,
+                        fontSize: 13,
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+                      onMouseLeave={(e) => (e.currentTarget.style.opacity = '0')}
+                    >
+                      <ZoomIn size={18} />
+                      <span>Click to Enlarge Receipt</span>
                     </div>
                   </div>
-                  <span style={{ fontSize: 11, color: 'var(--status-approved-text)', fontWeight: 700 }}>
-                    ✓ Match confirmed against claim amount
-                  </span>
+
+                  {/* Image Card Footer with Details & Actions */}
+                  <div
+                    style={{
+                      padding: '10px 14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: 'var(--bg-surface-subtle)',
+                      borderTop: '1px solid var(--border-color)',
+                      fontSize: 12,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
+                      <ImageIcon size={16} color="var(--color-primary)" style={{ flexShrink: 0 }} />
+                      <div style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                        <strong style={{ color: 'var(--text-primary)' }}>
+                          {claim.receipt?.fileName || 'Bill.jpeg'}
+                        </strong>
+                        <span style={{ color: 'var(--text-muted)', marginLeft: 6 }}>
+                          • {claim.receipt?.fileSize || '305 KB'} • Verified Bill Photo
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                      <button
+                        type="button"
+                        onClick={() => setIsImageModalOpen(true)}
+                        className="btn btn-secondary"
+                        style={{ padding: '4px 10px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}
+                      >
+                        <ZoomIn size={13} />
+                        Zoom
+                      </button>
+                      <a
+                        href={receiptImageUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-secondary"
+                        style={{ padding: '4px 10px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}
+                        title="Open image in new window"
+                      >
+                        <ExternalLink size={13} />
+                        Open
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Fallback Document File Box */
+                <div
+                  style={{
+                    padding: '12px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--bg-surface-subtle)',
+                    border: '1px dashed var(--border-color)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: 12,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <FileText size={20} color="var(--color-primary)" />
+                    <div>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)' }}>
+                        {claim.receipt?.fileName || 'Attached_Receipt.pdf'}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                        {claim.receipt?.fileSize || 'PDF Invoice • Stored encrypted'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {receiptImageUrl && (
+                    <a
+                      href={receiptImageUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="icon-btn"
+                      title="Open file"
+                    >
+                      <ExternalLink size={15} />
+                    </a>
+                  )}
                 </div>
               )}
             </div>
@@ -559,6 +645,63 @@ export const ClaimDrawer = ({
           onClose();
         }}
       />
+
+      {/* Fullscreen / High-Res Receipt Image Zoom Modal */}
+      {isImageModalOpen && receiptImageUrl && (
+        <Modal
+          isOpen={isImageModalOpen}
+          onClose={() => setIsImageModalOpen(false)}
+          title={`Bill Attachment — ${claim.receipt?.merchant || claim.title} (${claim.receipt?.fileName || 'Bill.jpeg'})`}
+          maxWidth="900px"
+          footer={
+            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                Billed Amount: <strong>₹{claim.amount?.toLocaleString('en-IN')}</strong> • Date: {claim.receipt?.date || claim.expenseDate}
+              </span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <a
+                  href={receiptImageUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-secondary"
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
+                >
+                  <ExternalLink size={14} />
+                  Open in New Tab
+                </a>
+                <Button variant="secondary" onClick={() => setIsImageModalOpen(false)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          }
+        >
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              background: '#090D16',
+              borderRadius: 'var(--radius-md)',
+              padding: 16,
+              maxHeight: '75vh',
+              overflow: 'auto',
+            }}
+          >
+            <img
+              src={receiptImageUrl}
+              alt={claim.receipt?.merchant || 'Receipt Full View'}
+              style={{
+                maxWidth: '100%',
+                maxHeight: '70vh',
+                objectFit: 'contain',
+                borderRadius: '4px',
+                boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
+              }}
+            />
+          </div>
+        </Modal>
+      )}
     </>
   );
 };
