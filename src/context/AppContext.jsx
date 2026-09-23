@@ -13,20 +13,36 @@ import { api } from '../services/api';
 
 const AppContext = createContext(null);
 const STORAGE_KEY = 'fintrack_employer_state_v1';
+const AUTH_STORAGE_KEY = 'fintrack_employer_auth_v1';
 
 export const AppProvider = ({ children }) => {
   const { addToast } = useToast();
 
-  // Load from LocalStorage if available
+  // Authentication State
+  const [authSession, setAuthSession] = useState(() => {
+    try {
+      const saved = localStorage.getItem(AUTH_STORAGE_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch (_) {
+      return null;
+    }
+  });
+
+  const isAuthenticated = Boolean(authSession);
+
+  // Load from LocalStorage if available (prioritizing active authSession)
   const [company, setCompany] = useState(() => {
+    if (authSession?.company) return authSession.company;
     const saved = localStorage.getItem(`${STORAGE_KEY}_company`);
     return saved ? JSON.parse(saved) : initialCompany;
   });
 
   const [admin, setAdmin] = useState(() => {
+    if (authSession?.user) return authSession.user;
     const saved = localStorage.getItem(`${STORAGE_KEY}_admin`);
     return saved ? JSON.parse(saved) : initialAdmin;
   });
+
 
   const [employees, setEmployees] = useState(() => {
     const saved = localStorage.getItem(`${STORAGE_KEY}_employees`);
@@ -61,6 +77,16 @@ export const AppProvider = ({ children }) => {
     const saved = localStorage.getItem(`${STORAGE_KEY}_adminTeam`);
     return saved ? JSON.parse(saved) : initialAdminTeam;
   });
+
+  const [inviteCodes, setInviteCodes] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`${STORAGE_KEY}_inviteCodes`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
 
   // UI Navigation State
   const [currentView, setCurrentView] = useState('dashboard');
@@ -129,6 +155,53 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  // Fetch Invite Codes for company
+  const fetchInviteCodes = async () => {
+    try {
+      const codes = await api.getInviteCodes(company?.id);
+      if (Array.isArray(codes) && codes.length > 0) {
+        setInviteCodes(codes);
+        localStorage.setItem(`${STORAGE_KEY}_inviteCodes`, JSON.stringify(codes));
+      }
+    } catch (err) {
+      console.warn('Invite codes fetch failed:', err.message);
+    }
+  };
+
+  // Generate Invite Code Handler
+  const generateInviteCode = async ({ department, monthlyAllowance, role }) => {
+    try {
+      const invite = await api.generateInviteCode({
+        companyId: company?.id || 'COMP-01',
+        companyName: company?.name || 'TechCorp Solutions India',
+        department: department || 'Engineering',
+        monthlyAllowance: Number(monthlyAllowance) || 25000,
+        role: role || 'Associate',
+        createdBy: admin?.name || 'Admin',
+      });
+
+      setInviteCodes((prev) => [invite, ...prev]);
+      localStorage.setItem(
+        `${STORAGE_KEY}_inviteCodes`,
+        JSON.stringify([invite, ...inviteCodes])
+      );
+
+      addToast({
+        title: 'Invite Code Generated',
+        message: `Code ${invite.code} created for ${department} (Allowance: ₹${Number(invite.monthlyAllowance).toLocaleString()})`,
+        type: 'success',
+      });
+      return invite;
+    } catch (err) {
+      addToast({
+        title: 'Code Generation Failed',
+        message: err.message || 'Could not generate invite code',
+        type: 'error',
+      });
+      throw err;
+    }
+  };
+
   // Initial load & periodic background sync every 10s
   useEffect(() => {
     // Purge any stale mock claims immediately
@@ -140,6 +213,7 @@ export const AppProvider = ({ children }) => {
 
     fetchRealClaims();
     fetchRealEmployees();
+    fetchInviteCodes();
 
     const interval = setInterval(() => {
       fetchRealClaims(false);
@@ -147,6 +221,7 @@ export const AppProvider = ({ children }) => {
 
     return () => clearInterval(interval);
   }, []);
+
 
   // Sync state to LocalStorage
   useEffect(() => {
@@ -481,6 +556,179 @@ export const AppProvider = ({ children }) => {
     fetchRealEmployees();
   };
 
+  // --- Employer Authentication Handlers ---
+
+  const sendOtp = async (email) => {
+    try {
+      const res = await api.sendOtp(email);
+      addToast({
+        title: 'Verification Code Dispatched',
+        message: `A 6-digit OTP has been sent to ${email}`,
+        type: 'info',
+      });
+      return res;
+    } catch (err) {
+      addToast({
+        title: 'Dispatch Failed',
+        message: err.message || 'Unable to send OTP',
+        type: 'error',
+      });
+      throw err;
+    }
+  };
+
+  const verifyOtp = async (email, otp, name, phone) => {
+    return api.verifyOtp(email, otp, name, phone);
+  };
+
+  const loginWithPassword = async ({ email, password, companyData }) => {
+    try {
+      const result = await api.login({ email, password });
+      const user = {
+        id: result?.user?.id || 'ADM-' + Date.now().toString().slice(-4),
+        name: result?.user?.name || email.split('@')[0],
+        email: email.toLowerCase().trim(),
+        role: result?.user?.role || 'Head of Finance & Admin',
+        department: 'Finance',
+        avatar: (result?.user?.name || email).slice(0, 2).toUpperCase(),
+        joinedDate: new Date().toISOString().split('T')[0],
+      };
+      const activeCompany = companyData || company;
+      const session = {
+        token: result?.token || 'jwt-' + Date.now(),
+        user,
+        company: activeCompany,
+        loginAt: new Date().toISOString(),
+      };
+      setAuthSession(session);
+      setAdmin(user);
+      if (companyData) setCompany(companyData);
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+      localStorage.setItem(`${STORAGE_KEY}_admin`, JSON.stringify(user));
+      if (companyData) localStorage.setItem(`${STORAGE_KEY}_company`, JSON.stringify(companyData));
+
+      addToast({
+        title: 'Welcome Back',
+        message: `Signed in as ${user.name} (${activeCompany.name})`,
+        type: 'success',
+      });
+      return { success: true, user, company: activeCompany };
+    } catch (err) {
+      addToast({
+        title: 'Sign In Failed',
+        message: err.message || 'Please check your credentials',
+        type: 'error',
+      });
+      throw err;
+    }
+  };
+
+  const loginWithOtp = async ({ email, otp, companyData }) => {
+    try {
+      const result = await api.verifyOtp(email, otp);
+      const user = {
+        id: result?.user?.id || 'ADM-' + Date.now().toString().slice(-4),
+        name: result?.user?.name || email.split('@')[0],
+        email: email.toLowerCase().trim(),
+        role: result?.user?.role || 'Head of Finance & Admin',
+        department: 'Finance',
+        avatar: (result?.user?.name || email).slice(0, 2).toUpperCase(),
+        joinedDate: new Date().toISOString().split('T')[0],
+      };
+      const activeCompany = companyData || company;
+      const session = {
+        token: result?.token || 'jwt-' + Date.now(),
+        user,
+        company: activeCompany,
+        loginAt: new Date().toISOString(),
+      };
+      setAuthSession(session);
+      setAdmin(user);
+      if (companyData) setCompany(companyData);
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+      localStorage.setItem(`${STORAGE_KEY}_admin`, JSON.stringify(user));
+      if (companyData) localStorage.setItem(`${STORAGE_KEY}_company`, JSON.stringify(companyData));
+
+      addToast({
+        title: 'OTP Verified',
+        message: `Welcome back, ${user.name}!`,
+        type: 'success',
+      });
+      return { success: true, user, company: activeCompany };
+    } catch (err) {
+      addToast({
+        title: 'Verification Failed',
+        message: err.message || 'Invalid verification code',
+        type: 'error',
+      });
+      throw err;
+    }
+  };
+
+  const signup = async ({ name, email, phone, password, companyData, department, role }) => {
+    try {
+      const result = await api.register({
+        name,
+        email: email.toLowerCase().trim(),
+        phone,
+        password,
+        role: role || 'Head of Finance & Admin',
+      });
+
+      const user = {
+        id: result?.user?.id || 'ADM-' + Date.now().toString().slice(-4),
+        name: name || result?.user?.name || email.split('@')[0],
+        email: email.toLowerCase().trim(),
+        phone: phone || '+91 98201 44829',
+        role: role || 'Head of Finance & Admin',
+        department: department || 'Finance & Corporate Accounts',
+        avatar: (name || email).slice(0, 2).toUpperCase(),
+        joinedDate: new Date().toISOString().split('T')[0],
+      };
+
+      const resolvedCompany = companyData || company;
+      const session = {
+        token: result?.token || 'jwt-' + Date.now(),
+        user,
+        company: resolvedCompany,
+        loginAt: new Date().toISOString(),
+      };
+
+      setAuthSession(session);
+      setAdmin(user);
+      setCompany(resolvedCompany);
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+      localStorage.setItem(`${STORAGE_KEY}_admin`, JSON.stringify(user));
+      localStorage.setItem(`${STORAGE_KEY}_company`, JSON.stringify(resolvedCompany));
+
+      addToast({
+        title: 'Enterprise Account Created',
+        message: `Registered ${resolvedCompany.name} portal successfully!`,
+        type: 'success',
+      });
+      return { success: true, user, company: resolvedCompany };
+    } catch (err) {
+      addToast({
+        title: 'Registration Error',
+        message: err.message || 'Could not complete registration',
+        type: 'error',
+      });
+      throw err;
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    setAuthSession(null);
+    setCurrentView('dashboard');
+    addToast({
+      title: 'Signed Out',
+      message: 'You have been securely signed out of FinTrack Corporate.',
+      type: 'info',
+    });
+  };
+
+
   return (
     <AppContext.Provider
       value={{
@@ -517,8 +765,23 @@ export const AppProvider = ({ children }) => {
         lastSyncTime,
         fetchRealClaims,
         fetchRealEmployees,
+        // Auth state and actions
+        isAuthenticated,
+        authSession,
+        loginWithPassword,
+        loginWithOtp,
+        signup,
+        sendOtp,
+        verifyOtp,
+        logout,
+        // Invite Code management
+        inviteCodes,
+        generateInviteCode,
+        fetchInviteCodes,
       }}
     >
+
+
       {children}
     </AppContext.Provider>
   );

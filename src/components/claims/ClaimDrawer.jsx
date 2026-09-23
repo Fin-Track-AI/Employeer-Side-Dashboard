@@ -102,11 +102,12 @@ export const ClaimDrawer = ({
             )}
 
             {isApproved && (
-              <Button variant="primary" onClick={handleMarkPaid}>
-                Mark as Reimbursed / Paid
+              <Button variant="primary" icon={CheckCircle2} onClick={handleMarkPaid}>
+                Mark Payment Done (Reimbursed)
               </Button>
             )}
           </div>
+
         }
       >
         {/* BR-14 Claim Status Lifecycle Timeline Bar */}
