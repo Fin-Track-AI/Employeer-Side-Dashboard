@@ -76,10 +76,10 @@ export const BudgetView = () => {
 
         <StatCard
           title="Projected Month-End"
-          value={`₹${(budget.projectedMonthEnd || 228000).toLocaleString('en-IN')}`}
+          value={`₹${(budget.projectedMonthEnd != null ? budget.projectedMonthEnd : 0).toLocaleString('en-IN')}`}
           icon={TrendingUp}
-          trend="Within monthly allocation"
-          trendType="up"
+          trend={budget.projectedMonthEnd > 0 ? 'Within monthly allocation' : 'Awaiting activity'}
+          trendType={budget.projectedMonthEnd > 0 ? 'up' : 'neutral'}
         />
 
         <StatCard

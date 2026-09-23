@@ -75,7 +75,23 @@ export const AppProvider = ({ children }) => {
 
   const [budget, setBudget] = useState(() => {
     const saved = localStorage.getItem(`${STORAGE_KEY}_budget`);
-    return saved ? JSON.parse(saved) : initialBudget;
+    if (saved) {
+      try {
+        if (
+          saved.includes('54200') ||
+          saved.includes('58400') ||
+          saved.includes('228000') ||
+          saved.includes('142850') ||
+          saved.includes('21000') ||
+          saved.includes('28450')
+        ) {
+          localStorage.removeItem(`${STORAGE_KEY}_budget`);
+          return initialBudget;
+        }
+        return JSON.parse(saved);
+      } catch (_) {}
+    }
+    return initialBudget;
   });
 
   const [policySettings, setPolicySettings] = useState(() => {
@@ -214,7 +230,7 @@ export const AppProvider = ({ children }) => {
 
   // Initial load & periodic background sync every 10s
   useEffect(() => {
-    // Purge any stale mock claims & mock employees immediately
+    // Purge any stale mock claims, employees & mock budget immediately
     const saved = localStorage.getItem(`${STORAGE_KEY}_claims`);
     if (saved && (saved.includes('CLM-100') || saved.includes('claim_17900196') || saved.includes('claim_1790056'))) {
       localStorage.removeItem(`${STORAGE_KEY}_claims`);
@@ -224,6 +240,22 @@ export const AppProvider = ({ children }) => {
     if (savedEmps && savedEmps.includes('EMP-10')) {
       localStorage.removeItem(`${STORAGE_KEY}_employees`);
       setEmployees([]);
+    }
+    const savedBudget = localStorage.getItem(`${STORAGE_KEY}_budget`);
+    if (
+      savedBudget &&
+      (savedBudget.includes('54200') ||
+        savedBudget.includes('58400') ||
+        savedBudget.includes('228000') ||
+        savedBudget.includes('142850') ||
+        savedBudget.includes('21000') ||
+        savedBudget.includes('28450') ||
+        savedBudget.includes('18500') ||
+        savedBudget.includes('11400') ||
+        savedBudget.includes('9300'))
+    ) {
+      localStorage.removeItem(`${STORAGE_KEY}_budget`);
+      setBudget(initialBudget);
     }
 
     fetchRealClaims();
@@ -253,6 +285,52 @@ export const AppProvider = ({ children }) => {
   const pendingClaims = claims.filter((c) => c.status === 'Pending');
   const approvedClaims = claims.filter((c) => c.status === 'Approved' || c.status === 'Paid');
   const rejectedClaims = claims.filter((c) => c.status === 'Rejected');
+
+  // Derive category and department spend dynamically from real claims & enrolled employees
+  const categoriesWithSpend = (budget.categories || initialBudget.categories).map((cat) => {
+    const catSpend = claims
+      .filter(
+        (c) =>
+          ['Approved', 'Paid'].includes(c.status) &&
+          (c.category || '').trim().toLowerCase() === cat.name.trim().toLowerCase()
+      )
+      .reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+    return {
+      ...cat,
+      spent: catSpend,
+    };
+  });
+
+  const departmentsWithSpend = (budget.departments || initialBudget.departments).map((dept) => {
+    const deptSpend = claims
+      .filter(
+        (c) =>
+          ['Approved', 'Paid'].includes(c.status) &&
+          (c.department || '').trim().toLowerCase() === dept.name.trim().toLowerCase()
+      )
+      .reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+    const deptEmployeesCount = employees.filter(
+      (e) => (e.department || '').trim().toLowerCase() === dept.name.trim().toLowerCase()
+    ).length;
+    return {
+      ...dept,
+      spent: deptSpend,
+      employeesCount: deptEmployeesCount,
+    };
+  });
+
+  const totalApprovedSpend = claims
+    .filter((c) => ['Approved', 'Paid'].includes(c.status))
+    .reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+
+  const activeBudget = {
+    ...budget,
+    spentThisMonth: totalApprovedSpend,
+    remainingThisMonth: Math.max(0, (budget.monthlyBudget || 250000) - totalApprovedSpend),
+    projectedMonthEnd: totalApprovedSpend,
+    categories: categoriesWithSpend,
+    departments: departmentsWithSpend,
+  };
 
   // Helper to validate state transitions in web app (BR-14)
   const validateTransition = (currentStatus, targetStatus) => {
@@ -567,7 +645,11 @@ export const AppProvider = ({ children }) => {
   // Force Refresh Live Data from MongoDB
   const resetDemoData = () => {
     localStorage.removeItem(`${STORAGE_KEY}_claims`);
+    localStorage.removeItem(`${STORAGE_KEY}_employees`);
+    localStorage.removeItem(`${STORAGE_KEY}_budget`);
     setClaims([]);
+    setEmployees([]);
+    setBudget(initialBudget);
     fetchRealClaims(true);
     fetchRealEmployees();
   };
@@ -752,7 +834,7 @@ export const AppProvider = ({ children }) => {
         admin,
         employees,
         claims,
-        budget,
+        budget: activeBudget,
         policySettings,
         adminTeam,
         currentView,

@@ -15,14 +15,14 @@ export const AnalyticsCharts = () => {
 
   // Calculate category totals
   const categories = budget.categories || [];
-  const totalCategorySpend = categories.reduce((sum, c) => sum + (c.spent || 0), 0) || 1;
+  const totalCategorySpend = categories.reduce((sum, c) => sum + (c.spent || 0), 0);
 
   // Calculate department totals
   const departments = budget.departments || [];
-  const totalDeptSpend = departments.reduce((sum, d) => sum + (d.spent || 0), 0) || 1;
+  const totalDeptSpend = departments.reduce((sum, d) => sum + (d.spent || 0), 0);
 
   // Claim status distribution
-  const totalClaims = claims.length || 1;
+  const totalClaims = claims.length;
   const approvedCount = claims.filter((c) => c.status === 'Approved' || c.status === 'Paid').length;
   const pendingCount = claims.filter((c) => c.status === 'Pending').length;
   const rejectedCount = claims.filter((c) => c.status === 'Rejected').length;
@@ -85,7 +85,7 @@ export const AnalyticsCharts = () => {
           <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {categories.map((cat) => {
               const spent = cat.spent || 0;
-              const share = Math.round((spent / totalCategorySpend) * 100);
+              const share = totalCategorySpend > 0 ? Math.round((spent / totalCategorySpend) * 100) : 0;
 
               return (
                 <div key={cat.name}>
@@ -132,7 +132,7 @@ export const AnalyticsCharts = () => {
           <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {departments.map((dept) => {
               const spent = dept.spent || 0;
-              const share = Math.round((spent / totalDeptSpend) * 100);
+              const share = totalDeptSpend > 0 ? Math.round((spent / totalDeptSpend) * 100) : 0;
 
               return (
                 <div key={dept.name}>
@@ -174,32 +174,46 @@ export const AnalyticsCharts = () => {
             <TrendingUp size={18} color="var(--color-primary)" />
             Claim Approval & Processing Distribution
           </div>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Total {totalClaims} claims</span>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Total {totalClaims} claim{totalClaims === 1 ? '' : 's'}</span>
         </div>
 
         <div className="card-body">
-          <div style={{ display: 'flex', height: 16, borderRadius: 'var(--radius-full)', overflow: 'hidden', marginBottom: 20 }}>
-            <div
-              style={{
-                width: `${(approvedCount / totalClaims) * 100}%`,
-                background: 'var(--status-approved-dot)',
-                title: 'Approved',
-              }}
-            />
-            <div
-              style={{
-                width: `${(pendingCount / totalClaims) * 100}%`,
-                background: 'var(--status-pending-dot)',
-                title: 'Pending',
-              }}
-            />
-            <div
-              style={{
-                width: `${(rejectedCount / totalClaims) * 100}%`,
-                background: 'var(--status-rejected-dot)',
-                title: 'Rejected',
-              }}
-            />
+          <div
+            style={{
+              display: 'flex',
+              height: 16,
+              borderRadius: 'var(--radius-full)',
+              overflow: 'hidden',
+              marginBottom: 20,
+              background: 'var(--bg-surface-subtle)',
+              border: '1px solid var(--border-subtle)',
+            }}
+          >
+            {totalClaims > 0 ? (
+              <>
+                <div
+                  style={{
+                    width: `${(approvedCount / totalClaims) * 100}%`,
+                    background: 'var(--status-approved-dot)',
+                    title: 'Approved',
+                  }}
+                />
+                <div
+                  style={{
+                    width: `${(pendingCount / totalClaims) * 100}%`,
+                    background: 'var(--status-pending-dot)',
+                    title: 'Pending',
+                  }}
+                />
+                <div
+                  style={{
+                    width: `${(rejectedCount / totalClaims) * 100}%`,
+                    background: 'var(--status-rejected-dot)',
+                    title: 'Rejected',
+                  }}
+                />
+              </>
+            ) : null}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
@@ -211,7 +225,7 @@ export const AnalyticsCharts = () => {
                 {approvedCount}
               </div>
               <div style={{ fontSize: 11.5, color: 'var(--status-approved-text)', opacity: 0.85 }}>
-                {Math.round((approvedCount / totalClaims) * 100)}% of claims
+                {totalClaims > 0 ? Math.round((approvedCount / totalClaims) * 100) : 0}% of claims
               </div>
             </div>
 
@@ -223,7 +237,7 @@ export const AnalyticsCharts = () => {
                 {pendingCount}
               </div>
               <div style={{ fontSize: 11.5, color: 'var(--status-pending-text)', opacity: 0.85 }}>
-                {Math.round((pendingCount / totalClaims) * 100)}% of claims
+                {totalClaims > 0 ? Math.round((pendingCount / totalClaims) * 100) : 0}% of claims
               </div>
             </div>
 
@@ -235,7 +249,7 @@ export const AnalyticsCharts = () => {
                 {rejectedCount}
               </div>
               <div style={{ fontSize: 11.5, color: 'var(--status-rejected-text)', opacity: 0.85 }}>
-                {Math.round((rejectedCount / totalClaims) * 100)}% of claims
+                {totalClaims > 0 ? Math.round((rejectedCount / totalClaims) * 100) : 0}% of claims
               </div>
             </div>
           </div>
