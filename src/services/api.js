@@ -6,9 +6,20 @@
 const LOCAL_URL = 'http://localhost:5001/api/v1';
 const CLOUD_RUN_URL = 'https://fintrack-backend-api-335711726164.asia-south1.run.app/api/v1';
 
-let activeBaseUrl = LOCAL_URL;
+const ENV_API_URL = import.meta.env?.VITE_API_URL;
+const FORCE_DEPLOYED = import.meta.env?.VITE_USE_DEPLOYED_BACKEND === 'true';
+
+let activeBaseUrl = ENV_API_URL || (FORCE_DEPLOYED ? CLOUD_RUN_URL : LOCAL_URL);
 
 export const resolveApiBaseUrl = async () => {
+  if (ENV_API_URL) {
+    activeBaseUrl = ENV_API_URL;
+    return activeBaseUrl;
+  }
+  if (FORCE_DEPLOYED) {
+    activeBaseUrl = CLOUD_RUN_URL;
+    return activeBaseUrl;
+  }
   try {
     const res = await fetch(`${LOCAL_URL}/health`, { signal: AbortSignal.timeout(1500) });
     if (res.ok) {
