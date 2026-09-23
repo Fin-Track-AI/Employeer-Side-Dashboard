@@ -13,8 +13,6 @@ import {
   Briefcase,
   Layers,
   Check,
-  Smartphone,
-  ChevronRight,
 } from 'lucide-react';
 
 import { useApp } from '../context/AppContext';
@@ -120,19 +118,6 @@ export const AuthView = () => {
     }, 1000);
   };
 
-  // Quick autofill demo credentials
-  const handleAutofillDemo = () => {
-    setLoginMethod('password');
-    setLoginEmail('jadhavritesh283@gmail.com');
-    setLoginPassword('TechCorp@2026');
-    setLoginCompanyId(PRESET_COMPANIES[0].id);
-    addToast({
-      title: 'Demo Credentials Loaded',
-      message: 'Email & password populated for TechCorp India',
-      type: 'info',
-    });
-  };
-
   // Send OTP
   const handleSendLoginOtp = async () => {
     if (!loginEmail || !loginEmail.includes('@')) {
@@ -216,7 +201,7 @@ export const AuthView = () => {
 
       {/* Main Elevated Card */}
       <div className="auth-portal-card">
-        {/* Left Column: Brand, Trust & Features (Clean Warm Light Theme) */}
+        {/* Left Column: Brand, Trust & Features */}
         <div className="auth-brand-pane">
           {/* Header & Logo */}
           <div className="auth-brand-header">
@@ -267,7 +252,7 @@ export const AuthView = () => {
                 <div className="auth-feature-text">
                   <h4 className="auth-feature-title">AI Receipt Ingestion</h4>
                   <p className="auth-feature-desc">
-                    Real-time sync from mobile app with automatic OCR itemization.
+                    Instant expense receipt sync with automated OCR itemization.
                   </p>
                 </div>
               </div>
@@ -306,21 +291,6 @@ export const AuthView = () => {
               <p className="auth-form-subtitle">
                 Access your company console to review claims and invite employees
               </p>
-            </div>
-
-            {/* Test Credentials Strip */}
-            <div className="auth-demo-banner">
-              <div className="auth-demo-info">
-                <span className="auth-demo-tag">DEMO</span>
-                <span className="auth-demo-creds">TechCorp India • admin@techcorp.in</span>
-              </div>
-              <button
-                type="button"
-                className="auth-autofill-btn"
-                onClick={handleAutofillDemo}
-              >
-                Autofill
-              </button>
             </div>
 
             {/* Method Toggle: Password vs OTP */}
@@ -369,7 +339,7 @@ export const AuthView = () => {
               <input
                 type="email"
                 className="auth-input"
-                placeholder="admin@techcorp.in"
+                placeholder="admin@company.com"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
                 required
@@ -429,7 +399,7 @@ export const AuthView = () => {
                     type="text"
                     maxLength={6}
                     className="auth-input auth-otp-input"
-                    placeholder="123456"
+                    placeholder="Enter 6-digit code"
                     value={loginOtp}
                     onChange={(e) => setLoginOtp(e.target.value.replace(/\D/g, ''))}
                   />
@@ -448,9 +418,6 @@ export const AuthView = () => {
                     </div>
                   )}
                 </div>
-                <span className="auth-otp-hint">
-                  Test code: <strong>123456</strong> or <strong>000000</strong>
-                </span>
               </div>
             )}
 
@@ -470,19 +437,6 @@ export const AuthView = () => {
                 </span>
               )}
             </button>
-
-            {/* Mobile App Registered Callout */}
-            <div className="auth-mobile-callout">
-              <div className="auth-mobile-icon-box">
-                <Smartphone size={18} />
-              </div>
-              <div className="auth-mobile-text">
-                <span className="auth-mobile-title">Registered via FinTrack Mobile App?</span>
-                <span className="auth-mobile-desc">
-                  Sign in using the company email & credentials configured in the mobile application.
-                </span>
-              </div>
-            </div>
           </form>
         </div>
       </div>
