@@ -14,6 +14,7 @@ import {
   Layers,
   Check,
   Smartphone,
+  ChevronRight,
 } from 'lucide-react';
 
 import { useApp } from '../context/AppContext';
@@ -93,7 +94,7 @@ export const AuthView = () => {
 
   const [loginMethod, setLoginMethod] = useState('password'); // 'password' | 'otp'
 
-  // Login Form State
+  // Form State
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginOtp, setLoginOtp] = useState('');
@@ -101,7 +102,7 @@ export const AuthView = () => {
   const [isLoginOtpSent, setIsLoginOtpSent] = useState(false);
   const [loginCompanyId, setLoginCompanyId] = useState(PRESET_COMPANIES[0].id);
 
-  // Loading States
+  // Loading & Timer States
   const [isLoading, setIsLoading] = useState(false);
   const [otpCountdown, setOtpCountdown] = useState(0);
 
@@ -119,7 +120,7 @@ export const AuthView = () => {
     }, 1000);
   };
 
-  // Quick autofill demo admin
+  // Quick autofill demo credentials
   const handleAutofillDemo = () => {
     setLoginMethod('password');
     setLoginEmail('jadhavritesh283@gmail.com');
@@ -127,12 +128,12 @@ export const AuthView = () => {
     setLoginCompanyId(PRESET_COMPANIES[0].id);
     addToast({
       title: 'Demo Credentials Loaded',
-      message: 'Email and password populated for TechCorp India',
+      message: 'Email & password populated for TechCorp India',
       type: 'info',
     });
   };
 
-  // Handle Login Send OTP
+  // Send OTP
   const handleSendLoginOtp = async () => {
     if (!loginEmail || !loginEmail.includes('@')) {
       addToast({
@@ -148,13 +149,13 @@ export const AuthView = () => {
       setIsLoginOtpSent(true);
       startOtpTimer();
     } catch (_) {
-      // Toast already handled in context
+      // Toast handled in context
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle Login Submit
+  // Handle Sign In Submit
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     if (!loginEmail) {
@@ -202,7 +203,7 @@ export const AuthView = () => {
         });
       }
     } catch (_) {
-      // Error toast already surfaced
+      // Error toast already shown
     } finally {
       setIsLoading(false);
     }
@@ -210,14 +211,14 @@ export const AuthView = () => {
 
   return (
     <div className="auth-portal-container">
-      {/* Dynamic Background Glows */}
-      <div className="auth-ambient-glow glow-top" />
-      <div className="auth-ambient-glow glow-bottom" />
+      {/* Subtle warm orange top ambient lighting */}
+      <div className="auth-ambient-glow" />
 
-      {/* Main Glassmorphic Card */}
+      {/* Main Elevated Card */}
       <div className="auth-portal-card">
-        {/* Left Column: Brand & Value Props */}
+        {/* Left Column: Brand, Trust & Features (Clean Warm Light Theme) */}
         <div className="auth-brand-pane">
+          {/* Header & Logo */}
           <div className="auth-brand-header">
             <div className="auth-brand-logo">
               <span className="auth-logo-text">F</span>
@@ -226,75 +227,92 @@ export const AuthView = () => {
               <div className="auth-brand-name">
                 FinTrack <span className="auth-brand-badge">EMPLOYER CONSOLE</span>
               </div>
-              <div className="auth-brand-tagline">Enterprise Reimbursement & Compliance Platform</div>
+              <div className="auth-brand-tagline">Corporate Expense Governance & AI Reimbursements</div>
             </div>
           </div>
 
+          {/* Hero Content */}
           <div className="auth-brand-body">
-            <div className="auth-hero-chip">
-              <Sparkles size={14} /> AI-Powered Expense Auditing
+            <div className="auth-hero-pill">
+              <Sparkles size={14} className="auth-hero-pill-icon" />
+              <span>Next-Gen Enterprise Reimbursements</span>
             </div>
+
             <h1 className="auth-brand-heading">
-              Streamline Company Reimbursements with AI
+              Smart Expense Governance for Growing Teams
             </h1>
+
             <p className="auth-brand-description">
-              Generate unique invite codes for your team, receive OCR-verified claims instantly, audit expenses with GST cross-checks, and mark payouts done in one click.
+              Generate invite codes for employees, automatically verify receipts with AI OCR, audit GST compliance, and mark bank payouts done in one click.
             </p>
 
+            {/* Feature Cards with Generous Spacing */}
             <div className="auth-features-list">
-              <div className="auth-feature-item">
-                <div className="auth-feature-icon">
-                  <ShieldCheck size={18} />
+              <div className="auth-feature-card">
+                <div className="auth-feature-icon-box">
+                  <ShieldCheck size={20} />
                 </div>
-                <div>
-                  <strong>Enterprise Invite Codes</strong>
-                  <span>Issue custom departmental enrollment codes with budget allowances.</span>
-                </div>
-              </div>
-              <div className="auth-feature-item">
-                <div className="auth-feature-icon">
-                  <Layers size={18} />
-                </div>
-                <div>
-                  <strong>Real-Time Claim Ingestion</strong>
-                  <span>Instant receipt sync from employee mobile submissions with OCR confidence scoring.</span>
+                <div className="auth-feature-text">
+                  <h4 className="auth-feature-title">Corporate Invite Codes</h4>
+                  <p className="auth-feature-desc">
+                    Issue secure, single-use codes with assigned department limits.
+                  </p>
                 </div>
               </div>
-              <div className="auth-feature-item">
-                <div className="auth-feature-icon">
-                  <Briefcase size={18} />
+
+              <div className="auth-feature-card">
+                <div className="auth-feature-icon-box">
+                  <Layers size={20} />
                 </div>
-                <div>
-                  <strong>One-Click Payout Reconciliation</strong>
-                  <span>Approve claims and mark payment done to complete reimbursement cycles.</span>
+                <div className="auth-feature-text">
+                  <h4 className="auth-feature-title">AI Receipt Ingestion</h4>
+                  <p className="auth-feature-desc">
+                    Real-time sync from mobile app with automatic OCR itemization.
+                  </p>
+                </div>
+              </div>
+
+              <div className="auth-feature-card">
+                <div className="auth-feature-icon-box">
+                  <Briefcase size={20} />
+                </div>
+                <div className="auth-feature-text">
+                  <h4 className="auth-feature-title">1-Click Payout Reconciliation</h4>
+                  <p className="auth-feature-desc">
+                    Approve claims and mark payment done to complete cycles.
+                  </p>
                 </div>
               </div>
             </div>
           </div>
 
+          {/* Footer Security Badges */}
           <div className="auth-brand-footer">
             <span>FinTrack AI Enterprise v2.4</span>
-            <span className="dot-divider">•</span>
-            <span>256-Bit SSL Encrypted</span>
+            <span className="auth-footer-dot">•</span>
+            <span>Bank-Grade 256-Bit SSL</span>
           </div>
         </div>
 
-        {/* Right Column: Employer Portal Sign In */}
+        {/* Right Column: Employer Sign In Form */}
         <div className="auth-form-pane">
           <form onSubmit={handleLoginSubmit} className="auth-form">
+            {/* Heading & Badge */}
             <div className="auth-pane-heading">
               <div className="auth-role-pill">
                 <Building2 size={13} /> EMPLOYER PORTAL
               </div>
-              <h3>Sign In to Dashboard</h3>
-              <p>Enter your company credentials to manage claims and employee invite codes</p>
+              <h2 className="auth-form-title">Sign In to Dashboard</h2>
+              <p className="auth-form-subtitle">
+                Access your company console to review claims and invite employees
+              </p>
             </div>
 
-            {/* Quick Demo Autofill */}
+            {/* Test Credentials Strip */}
             <div className="auth-demo-banner">
-              <div className="auth-demo-text">
-                <strong>Quick Test Credentials:</strong>
-                <span>TechCorp Solutions India • admin@techcorp.in</span>
+              <div className="auth-demo-info">
+                <span className="auth-demo-tag">DEMO</span>
+                <span className="auth-demo-creds">TechCorp India • admin@techcorp.in</span>
               </div>
               <button
                 type="button"
@@ -305,46 +323,48 @@ export const AuthView = () => {
               </button>
             </div>
 
-            {/* Login Method Toggle: Password vs OTP */}
+            {/* Method Toggle: Password vs OTP */}
             <div className="auth-method-toggle">
               <button
                 type="button"
                 className={`auth-method-pill ${loginMethod === 'password' ? 'active' : ''}`}
                 onClick={() => setLoginMethod('password')}
               >
-                <Lock size={13} /> Password
+                <Lock size={14} /> Password
               </button>
               <button
                 type="button"
                 className={`auth-method-pill ${loginMethod === 'otp' ? 'active' : ''}`}
                 onClick={() => setLoginMethod('otp')}
               >
-                <KeyRound size={13} /> 6-Digit OTP
+                <KeyRound size={14} /> 6-Digit OTP
               </button>
             </div>
 
-            {/* Company You Work For / Managing */}
+            {/* Company Selection */}
             <div className="auth-input-group">
               <label className="auth-label">
-                <Building2 size={14} /> Company You Work For / Managing
+                <Building2 size={14} className="auth-label-icon" /> Company Portal
               </label>
-              <select
-                className="auth-select"
-                value={loginCompanyId}
-                onChange={(e) => setLoginCompanyId(e.target.value)}
-              >
-                {PRESET_COMPANIES.map((comp) => (
-                  <option key={comp.id} value={comp.id}>
-                    {comp.name} ({comp.city})
-                  </option>
-                ))}
-              </select>
+              <div className="auth-select-wrapper">
+                <select
+                  className="auth-select"
+                  value={loginCompanyId}
+                  onChange={(e) => setLoginCompanyId(e.target.value)}
+                >
+                  {PRESET_COMPANIES.map((comp) => (
+                    <option key={comp.id} value={comp.id}>
+                      {comp.name} ({comp.city})
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            {/* Work Email Address */}
+            {/* Corporate Work Email */}
             <div className="auth-input-group">
               <label className="auth-label">
-                <Mail size={14} /> Corporate Work Email
+                <Mail size={14} className="auth-label-icon" /> Corporate Work Email
               </label>
               <input
                 type="email"
@@ -356,12 +376,12 @@ export const AuthView = () => {
               />
             </div>
 
-            {/* Password Method Fields */}
+            {/* Password Login Field */}
             {loginMethod === 'password' && (
               <div className="auth-input-group">
                 <div className="auth-label-row">
                   <label className="auth-label">
-                    <Lock size={14} /> Password
+                    <Lock size={14} className="auth-label-icon" /> Password
                   </label>
                 </div>
                 <div className="auth-password-wrapper">
@@ -385,12 +405,12 @@ export const AuthView = () => {
               </div>
             )}
 
-            {/* OTP Method Fields */}
+            {/* OTP Login Field */}
             {loginMethod === 'otp' && (
               <div className="auth-input-group">
                 <div className="auth-label-row">
                   <label className="auth-label">
-                    <KeyRound size={14} /> 6-Digit OTP Verification Code
+                    <KeyRound size={14} className="auth-label-icon" /> 6-Digit Verification Code
                   </label>
                   {isLoginOtpSent && (
                     <button
@@ -428,13 +448,13 @@ export const AuthView = () => {
                     </div>
                   )}
                 </div>
-                <div className="auth-helper-text">
-                  Verification OTP: use <strong>123456</strong> or <strong>000000</strong>.
-                </div>
+                <span className="auth-otp-hint">
+                  Test code: <strong>123456</strong> or <strong>000000</strong>
+                </span>
               </div>
             )}
 
-            {/* Submit Button */}
+            {/* Primary Action Button */}
             <button
               type="submit"
               className="auth-submit-btn"
@@ -442,7 +462,7 @@ export const AuthView = () => {
             >
               {isLoading ? (
                 <span className="auth-btn-content">
-                  <RefreshCw size={16} className="auth-spinner" /> Authenticating...
+                  <RefreshCw size={16} className="auth-spinner" /> Signing in...
                 </span>
               ) : (
                 <span className="auth-btn-content">
@@ -451,12 +471,16 @@ export const AuthView = () => {
               )}
             </button>
 
-            {/* Mobile App Account Registration Callout */}
+            {/* Mobile App Registered Callout */}
             <div className="auth-mobile-callout">
-              <Smartphone size={18} className="auth-callout-icon" />
-              <div className="auth-callout-text">
-                <strong>Registered on FinTrack Mobile?</strong>
-                <span>Use the company credentials you registered in the mobile app to sign in.</span>
+              <div className="auth-mobile-icon-box">
+                <Smartphone size={18} />
+              </div>
+              <div className="auth-mobile-text">
+                <span className="auth-mobile-title">Registered via FinTrack Mobile App?</span>
+                <span className="auth-mobile-desc">
+                  Sign in using the company email & credentials configured in the mobile application.
+                </span>
               </div>
             </div>
           </form>
