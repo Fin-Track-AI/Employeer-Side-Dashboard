@@ -8,7 +8,9 @@ import { EmployeesView } from './views/EmployeesView';
 import { BudgetView } from './views/BudgetView';
 import { AnalyticsView } from './views/AnalyticsView';
 import { SettingsView } from './views/SettingsView';
+import { AuthView } from './views/AuthView';
 import { ClaimDrawer } from './components/claims/ClaimDrawer';
+
 import { RejectReasonModal } from './components/claims/RejectReasonModal';
 import { EmployeeDrawer } from './components/employees/EmployeeDrawer';
 import { AddEmployeeModal } from './components/employees/AddEmployeeModal';
@@ -16,6 +18,7 @@ import { useApp } from './context/AppContext';
 
 export const App = () => {
   const {
+    isAuthenticated,
     currentView,
     claims,
     employees,
@@ -27,9 +30,16 @@ export const App = () => {
     addEmployee,
   } = useApp();
 
-  // Modals & Drawers State
+  // Modals & Drawers State (declared unconditionally per React Rules of Hooks)
   const [rejectModalClaim, setRejectModalClaim] = useState(null);
   const [isAddEmployeeModalOpen, setIsAddEmployeeModalOpen] = useState(false);
+
+  // If user is not authenticated, show corporate Login / Signup portal
+  if (!isAuthenticated) {
+    return <AuthView />;
+  }
+
+
 
   // Lookups for drawers
   const activeClaim = claims.find((c) => c.id === selectedClaimId);

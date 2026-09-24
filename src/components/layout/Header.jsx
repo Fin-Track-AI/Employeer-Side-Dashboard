@@ -6,6 +6,7 @@ import {
   RotateCcw,
   Receipt,
   CheckCircle2,
+  LogOut,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { SearchInput } from '../common/SearchInput';
@@ -26,7 +27,9 @@ export const Header = ({ onOpenAddEmployee }) => {
     loadingClaims,
     lastSyncTime,
     fetchRealClaims,
+    logout,
   } = useApp();
+
 
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -239,8 +242,20 @@ export const Header = ({ onOpenAddEmployee }) => {
           >
             Add Employee
           </Button>
+
+          {/* Sign Out Button */}
+          <button
+            className="icon-btn"
+            onClick={logout}
+            title="Sign Out of Corporate Console"
+            aria-label="Sign Out"
+            style={{ color: '#EF4444' }}
+          >
+            <LogOut size={16} />
+          </button>
         </div>
       </div>
     </header>
+
   );
 };

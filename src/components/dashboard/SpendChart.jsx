@@ -6,7 +6,7 @@ export const SpendChart = () => {
   const [hoverIndex, setHoverIndex] = useState(null);
 
   const data = analyticsTrends;
-  const maxSpend = Math.max(...data.map((d) => d.totalSpent)) * 1.15;
+  const maxSpend = Math.max(...data.map((d) => d.totalSpent), 10000) * 1.15;
 
   const chartWidth = 600;
   const chartHeight = 220;

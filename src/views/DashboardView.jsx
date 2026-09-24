@@ -33,7 +33,7 @@ export const DashboardView = ({ onOpenClaim, onRejectClaim }) => {
           title="Total Employees"
           value={employees.length}
           icon={Users}
-          subtitle="Linked via mobile app"
+          subtitle="Enrolled Team Members"
           onClick={() => setCurrentView('employees')}
         />
 

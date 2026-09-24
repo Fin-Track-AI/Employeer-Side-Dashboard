@@ -9,6 +9,7 @@ import {
   Building2,
   ChevronRight,
   ShieldCheck,
+  LogOut,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -22,7 +23,9 @@ export const Sidebar = () => {
     employees,
     isMobileMenuOpen,
     setIsMobileMenuOpen,
+    logout,
   } = useApp();
+
 
   const navItems = [
     {
@@ -150,8 +153,19 @@ export const Sidebar = () => {
             </div>
             <ChevronRight size={16} color="var(--text-muted)" />
           </div>
+
+          <button
+            type="button"
+            className="sidebar-logout-btn"
+            onClick={logout}
+            title="Sign out of FinTrack Corporate"
+          >
+            <LogOut size={15} />
+            <span>Sign Out</span>
+          </button>
         </div>
       </aside>
+
     </>
   );
 };
