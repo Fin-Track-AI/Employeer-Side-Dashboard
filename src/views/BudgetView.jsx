@@ -11,10 +11,12 @@ export const BudgetView = () => {
   const { budget, updateBudget } = useApp();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  const monthlyBudget = budget.monthlyBudget || 250000;
-  const spent = budget.spentThisMonth || 0;
-  const remaining = Math.max(0, monthlyBudget - spent);
-  const percentUtilized = Math.min(100, Math.round((spent / monthlyBudget) * 100));
+  const monthlyBudget = Number(budget.monthlyBudget) || 250000;
+  const spent = Number(budget.spentThisMonth) || 0;
+  const remaining = monthlyBudget - spent;
+  const isOverbudget = remaining < 0;
+  const percentUtilized = monthlyBudget > 0 ? Math.round((spent / monthlyBudget) * 100) : 0;
+  const currentCycleName = new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -37,7 +39,7 @@ export const BudgetView = () => {
             Corporate Reimbursement Budget Governance
           </div>
           <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
-            Cycle: September 2026 • Controlled under Company Financial Policy
+            Cycle: {currentCycleName} • Controlled under Company Financial Policy
           </div>
         </div>
 
@@ -69,9 +71,11 @@ export const BudgetView = () => {
 
         <StatCard
           title="Remaining Budget"
-          value={`₹${remaining.toLocaleString('en-IN')}`}
+          value={isOverbudget ? `-₹${Math.abs(remaining).toLocaleString('en-IN')}` : `₹${remaining.toLocaleString('en-IN')}`}
           icon={Wallet}
-          subtitle="Available for pending claims"
+          subtitle={isOverbudget ? 'Budget deficit (overrun)' : 'Available for pending claims'}
+          trend={isOverbudget ? 'Over allocation cap' : 'Within budget limits'}
+          trendType={isOverbudget ? 'down' : 'up'}
         />
 
         <StatCard

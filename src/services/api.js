@@ -33,13 +33,18 @@ export const resolveApiBaseUrl = async () => {
   return activeBaseUrl;
 };
 
-const getAuthHeaders = () => {
+export const getAuthHeaders = () => {
   try {
-    const raw = localStorage.getItem('fintrack_employer_auth_session');
+    const raw =
+      localStorage.getItem('fintrack_employer_auth_v1') ||
+      localStorage.getItem('fintrack_employer_auth_session');
     if (raw) {
       const session = JSON.parse(raw);
       if (session?.token) {
-        return { Authorization: `Bearer ${session.token}` };
+        return {
+          Authorization: `Bearer ${session.token}`,
+          ...(session.company?.id ? { 'X-Company-Id': session.company.id } : {}),
+        };
       }
     }
   } catch (_) {}
@@ -50,13 +55,19 @@ export const api = {
   getBaseUrl: () => activeBaseUrl,
 
   /**
-   * Fetch all real claims submitted by employees from MongoDB
+   * Fetch real claims submitted by employees from MongoDB, filtered by company tenant
    */
-  getClaims: async () => {
+  getClaims: async (companyId, companyName) => {
     await resolveApiBaseUrl();
-    const res = await fetch(`${activeBaseUrl}/claims`, {
+    const queryParams = new URLSearchParams();
+    if (companyId) queryParams.set('companyId', companyId);
+    if (companyName) queryParams.set('companyName', companyName);
+    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+
+    const res = await fetch(`${activeBaseUrl}/claims${queryString}`, {
       headers: {
         ...getAuthHeaders(),
+        ...(companyId ? { 'X-Company-Id': companyId } : {}),
       },
     });
     if (!res.ok) {
@@ -69,7 +80,7 @@ export const api = {
   /**
    * Update claim status (Approve, Reject with reason, or Mark as Paid)
    */
-  updateClaimStatus: async (claimId, { status, adminNotes, rejectionReason }) => {
+  updateClaimStatus: async (claimId, { status, adminNotes, rejectionReason, note }) => {
     await resolveApiBaseUrl();
     const res = await fetch(`${activeBaseUrl}/claims/${claimId}/status`, {
       method: 'PATCH',
@@ -79,8 +90,9 @@ export const api = {
       },
       body: JSON.stringify({
         status,
-        adminNotes,
+        adminNotes: adminNotes || note,
         rejectionReason,
+        note: note || adminNotes || rejectionReason,
       }),
     });
 
@@ -94,16 +106,19 @@ export const api = {
   },
 
   /**
-   * Fetch all company employees registered in database
+   * Fetch company employees registered in database, filtered by company tenant
    */
-  getEmployees: async (companyId) => {
+  getEmployees: async (companyId, companyName) => {
     await resolveApiBaseUrl();
-    const url = companyId
-      ? `${activeBaseUrl}/employer/employees?companyId=${encodeURIComponent(companyId)}`
-      : `${activeBaseUrl}/employer/employees`;
-    const res = await fetch(url, {
+    const queryParams = new URLSearchParams();
+    if (companyId) queryParams.set('companyId', companyId);
+    if (companyName) queryParams.set('companyName', companyName);
+    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+
+    const res = await fetch(`${activeBaseUrl}/employer/employees${queryString}`, {
       headers: {
         ...getAuthHeaders(),
+        ...(companyId ? { 'X-Company-Id': companyId } : {}),
       },
     });
     if (!res.ok) {
@@ -120,6 +135,7 @@ export const api = {
     await resolveApiBaseUrl();
     const headers = {
       'Content-Type': 'application/json',
+      ...getAuthHeaders(),
     };
     if (authToken) {
       headers['Authorization'] = `Bearer ${authToken}`;
@@ -148,7 +164,10 @@ export const api = {
     try {
       const res = await fetch(`${activeBaseUrl}/employer/invites/generate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
         body: JSON.stringify(inviteData),
       });
       const data = await res.json().catch(() => ({}));
@@ -157,6 +176,9 @@ export const api = {
       }
       return data.data;
     } catch (err) {
+      if (err.message && !err.message.includes('Failed to fetch')) {
+        throw err;
+      }
       console.warn('Backend generateInviteCode fallback:', err.message);
       // Fallback local code generation if backend unreachable
       const prefix = (inviteData.companyName || 'TC').slice(0, 3).toUpperCase();
@@ -183,61 +205,38 @@ export const api = {
       const url = companyId
         ? `${activeBaseUrl}/employer/invites?companyId=${encodeURIComponent(companyId)}`
         : `${activeBaseUrl}/employer/invites`;
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        headers: {
+          ...getAuthHeaders(),
+          ...(companyId ? { 'X-Company-Id': companyId } : {}),
+        },
+      });
       if (!res.ok) {
         throw new Error('Failed to fetch invite codes');
       }
       const data = await res.json();
       return data.data?.invites || [];
     } catch (err) {
-      console.warn('Backend getInviteCodes fallback:', err.message);
+      console.warn('Backend getInviteCodes notice:', err.message);
       return [];
     }
   },
-
-  /**
-   * Fetch real enrolled employees for company from backend
-   */
-  getEmployees: async (companyId) => {
-    await resolveApiBaseUrl();
-    try {
-      const url = companyId
-        ? `${activeBaseUrl}/employer/employees?companyId=${encodeURIComponent(companyId)}`
-        : `${activeBaseUrl}/employer/employees`;
-      const res = await fetch(url);
-      if (!res.ok) {
-        throw new Error('Failed to fetch employees');
-      }
-      const data = await res.json();
-      return data.data?.employees || [];
-    } catch (err) {
-      console.warn('Backend getEmployees error:', err.message);
-      return [];
-    }
-  },
-
 
   /**
    * Send 6-digit OTP to work email
    */
   sendOtp: async (email) => {
     await resolveApiBaseUrl();
-    try {
-      const res = await fetch(`${activeBaseUrl}/auth/send-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.toLowerCase().trim() }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.message || 'Failed to dispatch verification code');
-      }
-      return data;
-    } catch (err) {
-      console.warn('Backend sendOtp notice:', err.message);
-      // Return simulated success if offline so user is not blocked
-      return { success: true, simulated: true, message: `Verification code generated for ${email}` };
+    const res = await fetch(`${activeBaseUrl}/auth/send-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.toLowerCase().trim() }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to dispatch verification code');
     }
+    return data;
   },
 
   /**
@@ -245,50 +244,38 @@ export const api = {
    */
   verifyOtp: async (email, otp, name, phone) => {
     await resolveApiBaseUrl();
-    try {
-      const res = await fetch(`${activeBaseUrl}/auth/verify-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email.toLowerCase().trim(),
-          otp: otp.toString().trim(),
-          name,
-          phone,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.message || 'Invalid or expired verification code');
-      }
-      return data.data;
-    } catch (err) {
-      throw err;
+    const res = await fetch(`${activeBaseUrl}/auth/verify-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email.toLowerCase().trim(),
+        otp: otp.toString().trim(),
+        name,
+        phone,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.message || 'Invalid or expired verification code');
     }
+    return data.data;
   },
 
   /**
-   * Sign in with email and password / token
+   * Sign in with email and password
    */
   login: async ({ email, password, name, phone }) => {
     await resolveApiBaseUrl();
-    try {
-      const res = await fetch(`${activeBaseUrl}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, name, phone }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
-      return data.data;
-    } catch (err) {
-      console.warn('Backend login fallback:', err.message);
-      return {
-        token: 'local-session-' + Date.now(),
-        user: { email, name: name || email.split('@')[0], role: 'Head of Finance & Admin' },
-      };
+    const res = await fetch(`${activeBaseUrl}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, name, phone }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.message || 'Invalid email or password');
     }
+    return data.data;
   },
 
   /**
@@ -296,24 +283,15 @@ export const api = {
    */
   register: async (userData) => {
     await resolveApiBaseUrl();
-    try {
-      const res = await fetch(`${activeBaseUrl}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.message || 'Registration failed');
-      }
-      return data.data;
-    } catch (err) {
-      console.warn('Backend register fallback:', err.message);
-      return {
-        token: 'local-session-' + Date.now(),
-        user: { ...userData, role: 'Head of Finance & Admin' },
-      };
+    const res = await fetch(`${activeBaseUrl}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userData),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.message || 'Registration failed');
     }
+    return data.data;
   },
 };
-

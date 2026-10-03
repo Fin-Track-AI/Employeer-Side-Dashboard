@@ -67,8 +67,8 @@ export const ClaimsView = ({ onOpenClaim, onRejectClaim }) => {
         departments={departments}
         categories={categories}
         onReset={handleReset}
-        onExportCSV={() => exportApprovedClaimsCSV(claims)}
-        onExportPDF={() => exportApprovedClaimsPDF(claims, company?.name || 'FinTrack Enterprise')}
+        onExportCSV={() => exportApprovedClaimsCSV(filteredClaims)}
+        onExportPDF={() => exportApprovedClaimsPDF(filteredClaims, company?.name || 'FinTrack Enterprise')}
         counts={counts}
       />
 

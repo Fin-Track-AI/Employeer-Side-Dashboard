@@ -9,18 +9,19 @@ export const AnalyticsKPIs = () => {
   const totalClaims = claims.length;
   const approved = claims.filter((c) => c.status === 'Approved' || c.status === 'Paid').length;
   const rejected = claims.filter((c) => c.status === 'Rejected').length;
-  const pending = claims.filter((c) => c.status === 'Pending').length;
+  const pending = claims.filter((c) => c.status === 'Pending' || c.status === 'Submitted' || c.status === 'In Review').length;
+  const adjudicated = approved + rejected;
 
-  const approvalRate = totalClaims > 0 ? Math.round((approved / totalClaims) * 100) : 0;
-  const rejectionRate = totalClaims > 0 ? Math.round((rejected / totalClaims) * 100) : 0;
+  const approvalRate = adjudicated > 0 ? Math.round((approved / adjudicated) * 100) : 0;
+  const rejectionRate = adjudicated > 0 ? Math.round((rejected / adjudicated) * 100) : 0;
 
   const totalApprovedAmount = claims
     .filter((c) => c.status === 'Approved' || c.status === 'Paid')
-    .reduce((sum, c) => sum + (c.amount || 0), 0);
+    .reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
 
   const avgClaimAmount =
     totalClaims > 0
-      ? Math.round(claims.reduce((sum, c) => sum + (c.amount || 0), 0) / totalClaims)
+      ? Math.round(claims.reduce((sum, c) => sum + (Number(c.amount) || 0), 0) / totalClaims)
       : 0;
 
   return (
@@ -29,7 +30,7 @@ export const AnalyticsKPIs = () => {
         title="Approval Rate"
         value={`${approvalRate}%`}
         icon={CheckCircle2}
-        trend={totalClaims > 0 ? `${approvalRate}% approved` : 'Awaiting claims'}
+        trend={adjudicated > 0 ? `${approvalRate}% of ${adjudicated} reviewed` : 'Awaiting claim review'}
         trendType={approvalRate > 0 ? 'up' : 'neutral'}
       />
 

@@ -77,17 +77,6 @@ export const AppProvider = ({ children }) => {
     const saved = localStorage.getItem(`${STORAGE_KEY}_budget`);
     if (saved) {
       try {
-        if (
-          saved.includes('54200') ||
-          saved.includes('58400') ||
-          saved.includes('228000') ||
-          saved.includes('142850') ||
-          saved.includes('21000') ||
-          saved.includes('28450')
-        ) {
-          localStorage.removeItem(`${STORAGE_KEY}_budget`);
-          return initialBudget;
-        }
         return JSON.parse(saved);
       } catch (_) {}
     }
@@ -126,33 +115,54 @@ export const AppProvider = ({ children }) => {
   const [isBackendConnected, setIsBackendConnected] = useState(true);
   const [lastSyncTime, setLastSyncTime] = useState(null);
 
-  // Fetch real claims from MongoDB backend
+  // Fetch real claims from MongoDB backend with tenant isolation & monthly cycle calculation
   const fetchRealClaims = async (showNotification = false) => {
     try {
       setLoadingClaims(true);
-      const backendClaims = await api.getClaims();
+      const backendClaims = await api.getClaims(company?.id, company?.name);
       if (Array.isArray(backendClaims)) {
-        setClaims(backendClaims);
-        localStorage.setItem(`${STORAGE_KEY}_claims`, JSON.stringify(backendClaims));
+        // Multi-tenant defense-in-depth: only keep claims belonging to this company
+        const tenantClaims = backendClaims.filter(
+          (c) =>
+            !c.employerId ||
+            !company?.id ||
+            c.employerId === company.id ||
+            (c.employerName &&
+              company?.name &&
+              c.employerName.trim().toLowerCase() === company.name.trim().toLowerCase())
+        );
+
+        setClaims(tenantClaims);
+        localStorage.setItem(`${STORAGE_KEY}_claims`, JSON.stringify(tenantClaims));
         setIsBackendConnected(true);
         setLastSyncTime(new Date().toLocaleTimeString());
 
-        // Update company stats based on real data
-        const approvedSum = backendClaims
-          .filter((c) => ['Approved', 'Paid'].includes(c.status))
-          .reduce((sum, c) => sum + (c.amount || 0), 0);
+        // Update company stats based on current month cycle
+        const currentYearMonth = new Date().toISOString().slice(0, 7);
+        const currentMonthApproved = tenantClaims.filter(
+          (c) =>
+            ['Approved', 'Paid'].includes(c.status) &&
+            ((c.expenseDate && c.expenseDate.startsWith(currentYearMonth)) ||
+              (c.submissionDate && c.submissionDate.startsWith(currentYearMonth)) ||
+              (c.submittedAt && new Date(c.submittedAt).toISOString().startsWith(currentYearMonth)))
+        );
+
+        const currentMonthSpent = currentMonthApproved.reduce(
+          (sum, c) => sum + (Number(c.amount) || 0),
+          0
+        );
 
         setBudget((prev) => ({
           ...prev,
-          spentThisMonth: approvedSum,
-          remainingThisMonth: Math.max(0, prev.monthlyBudget - approvedSum),
+          spentThisMonth: currentMonthSpent,
+          remainingThisMonth: (prev.monthlyBudget || 250000) - currentMonthSpent,
         }));
 
         if (showNotification) {
           addToast({
             type: 'success',
             title: 'Claims Synchronized',
-            message: `Fetched ${backendClaims.length} real claims directly from MongoDB backend.`,
+            message: `Fetched ${tenantClaims.length} real claims directly from backend.`,
           });
         }
       }
@@ -164,16 +174,33 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Fetch real registered employees from backend
+  // Fetch real registered employees from backend with tenant isolation
   const fetchRealEmployees = async () => {
     try {
-      const backendEmployees = await api.getEmployees(company?.id);
+      const backendEmployees = await api.getEmployees(company?.id, company?.name);
       if (Array.isArray(backendEmployees)) {
-        setEmployees(backendEmployees);
-        localStorage.setItem(`${STORAGE_KEY}_employees`, JSON.stringify(backendEmployees));
+        // Multi-tenant defense-in-depth: only keep employees linked to this company
+        const tenantEmployees = backendEmployees.filter(
+          (e) =>
+            !e.employerId ||
+            !company?.id ||
+            e.employerId === company.id ||
+            (e.employerName &&
+              company?.name &&
+              e.employerName.trim().toLowerCase() === company.name.trim().toLowerCase())
+        );
+
+        // Preserve locally added employees that aren't yet in backend
+        setEmployees((prev) => {
+          const localOnly = prev.filter((p) => p.isLocal && !tenantEmployees.some((b) => b.email === p.email));
+          const merged = [...tenantEmployees, ...localOnly];
+          localStorage.setItem(`${STORAGE_KEY}_employees`, JSON.stringify(merged));
+          return merged;
+        });
+
         setCompany((prev) => ({
           ...prev,
-          totalEmployees: backendEmployees.length,
+          totalEmployees: tenantEmployees.length,
         }));
       }
     } catch (err) {
@@ -241,23 +268,6 @@ export const AppProvider = ({ children }) => {
       localStorage.removeItem(`${STORAGE_KEY}_employees`);
       setEmployees([]);
     }
-    const savedBudget = localStorage.getItem(`${STORAGE_KEY}_budget`);
-    if (
-      savedBudget &&
-      (savedBudget.includes('54200') ||
-        savedBudget.includes('58400') ||
-        savedBudget.includes('228000') ||
-        savedBudget.includes('142850') ||
-        savedBudget.includes('21000') ||
-        savedBudget.includes('28450') ||
-        savedBudget.includes('18500') ||
-        savedBudget.includes('11400') ||
-        savedBudget.includes('9300'))
-    ) {
-      localStorage.removeItem(`${STORAGE_KEY}_budget`);
-      setBudget(initialBudget);
-    }
-
     fetchRealClaims();
     fetchRealEmployees();
     fetchInviteCodes();
@@ -268,7 +278,7 @@ export const AppProvider = ({ children }) => {
     }, 10000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [company?.id, company?.name]);
 
 
   // Sync state to LocalStorage
@@ -286,13 +296,25 @@ export const AppProvider = ({ children }) => {
   const approvedClaims = claims.filter((c) => c.status === 'Approved' || c.status === 'Paid');
   const rejectedClaims = claims.filter((c) => c.status === 'Rejected');
 
+  // Category normalizer to bridge mobile taxonomy and corporate quotas
+  const normalizeCategory = (cat = '') => {
+    const s = (cat || '').trim().toLowerCase();
+    if (s.includes('food') || s.includes('meal') || s.includes('dining')) return 'meals';
+    if (s.includes('travel') || s.includes('transport') || s.includes('flight') || s.includes('cab')) return 'travel';
+    if (s.includes('software') || s.includes('saas') || s.includes('cloud') || s.includes('license')) return 'software';
+    if (s.includes('dinner') || s.includes('client')) return 'client dinner';
+    if (s.includes('equipment') || s.includes('hardware') || s.includes('laptop')) return 'equipment';
+    if (s.includes('office') || s.includes('stationery') || s.includes('supplies')) return 'office';
+    return s;
+  };
+
   // Derive category and department spend dynamically from real claims & enrolled employees
   const categoriesWithSpend = (budget.categories || initialBudget.categories).map((cat) => {
     const catSpend = claims
       .filter(
         (c) =>
           ['Approved', 'Paid'].includes(c.status) &&
-          (c.category || '').trim().toLowerCase() === cat.name.trim().toLowerCase()
+          normalizeCategory(c.category) === normalizeCategory(cat.name)
       )
       .reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
     return {
@@ -319,15 +341,25 @@ export const AppProvider = ({ children }) => {
     };
   });
 
-  const totalApprovedSpend = claims
-    .filter((c) => ['Approved', 'Paid'].includes(c.status))
-    .reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+  const currentYearMonth = new Date().toISOString().slice(0, 7);
+  const currentMonthApprovedClaims = claims.filter(
+    (c) =>
+      ['Approved', 'Paid'].includes(c.status) &&
+      ((c.expenseDate && c.expenseDate.startsWith(currentYearMonth)) ||
+        (c.submissionDate && c.submissionDate.startsWith(currentYearMonth)) ||
+        (c.submittedAt && new Date(c.submittedAt).toISOString().startsWith(currentYearMonth)))
+  );
+
+  const totalApprovedSpendThisMonth = currentMonthApprovedClaims.reduce(
+    (sum, c) => sum + (Number(c.amount) || 0),
+    0
+  );
 
   const activeBudget = {
     ...budget,
-    spentThisMonth: totalApprovedSpend,
-    remainingThisMonth: Math.max(0, (budget.monthlyBudget || 250000) - totalApprovedSpend),
-    projectedMonthEnd: totalApprovedSpend,
+    spentThisMonth: totalApprovedSpendThisMonth,
+    remainingThisMonth: (budget.monthlyBudget || 250000) - totalApprovedSpendThisMonth,
+    projectedMonthEnd: totalApprovedSpendThisMonth,
     categories: categoriesWithSpend,
     departments: departmentsWithSpend,
   };

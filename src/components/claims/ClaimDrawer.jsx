@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FileText,
   Calendar,
@@ -36,6 +36,14 @@ export const ClaimDrawer = ({
   const [isRequestInfoModalOpen, setIsRequestInfoModalOpen] = useState(false);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setAdminNote('');
+    setImgError(false);
+    setShowReceiptZoom(false);
+    setIsImageModalOpen(false);
+    setIsRequestInfoModalOpen(false);
+  }, [claim?.id]);
 
   if (!claim) return null;
 

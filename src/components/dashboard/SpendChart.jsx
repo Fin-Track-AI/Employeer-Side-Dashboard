@@ -1,11 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { BarChart3 } from 'lucide-react';
 import { analyticsTrends } from '../../data/mockData';
+import { useApp } from '../../context/AppContext';
 
 export const SpendChart = () => {
+  const { claims } = useApp();
   const [hoverIndex, setHoverIndex] = useState(null);
 
-  const data = analyticsTrends;
+  const data = useMemo(() => {
+    const approvedClaims = claims.filter((c) => ['Approved', 'Paid'].includes(c.status));
+    if (approvedClaims.length === 0) return analyticsTrends;
+
+    // Group last 6 months
+    const now = new Date();
+    const monthBuckets = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = d.toISOString().slice(0, 7);
+      const monthLabel = d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+      const monthClaims = approvedClaims.filter((c) =>
+        (c.expenseDate || c.submissionDate || c.submittedAt || '').startsWith(key)
+      );
+      const totalSpent = monthClaims.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+      monthBuckets.push({
+        month: monthLabel,
+        totalSpent,
+        approvedCount: monthClaims.length,
+      });
+    }
+
+    const hasAnySpend = monthBuckets.some((m) => m.totalSpent > 0);
+    return hasAnySpend ? monthBuckets : analyticsTrends;
+  }, [claims]);
+
   const maxSpend = Math.max(...data.map((d) => d.totalSpent), 10000) * 1.15;
 
   const chartWidth = 600;

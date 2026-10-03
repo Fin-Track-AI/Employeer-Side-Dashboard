@@ -59,6 +59,16 @@ export const exportApprovedClaimsCSV = (claims = [], filename = 'Approved_Claims
   document.body.removeChild(link);
 };
 
+const escapeHtml = (unsafe) => {
+  if (unsafe == null) return '';
+  return String(unsafe)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
 export const exportApprovedClaimsPDF = (claims = [], companyName = 'FinTrack Enterprise') => {
   const approvedClaims = claims.filter(
     (c) => c.status === 'Approved' || c.status === 'Paid' || c.status === 'Reimbursed'
@@ -69,7 +79,8 @@ export const exportApprovedClaimsPDF = (claims = [], companyName = 'FinTrack Ent
     return;
   }
 
-  const totalAmount = approvedClaims.reduce((sum, c) => sum + (c.amount || 0), 0);
+  const safeCompanyName = escapeHtml(companyName);
+  const totalAmount = approvedClaims.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
   const printDate = new Date().toLocaleDateString('en-IN', {
     day: '2-digit',
     month: 'short',
@@ -86,7 +97,7 @@ export const exportApprovedClaimsPDF = (claims = [], companyName = 'FinTrack Ent
     <!DOCTYPE html>
     <html>
       <head>
-        <title>Payroll Expense Export — ${companyName}</title>
+        <title>Payroll Expense Export — ${safeCompanyName}</title>
         <style>
           body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1e293b; padding: 40px; margin: 0; }
           .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #ea580c; padding-bottom: 20px; margin-bottom: 30px; }
@@ -114,7 +125,7 @@ export const exportApprovedClaimsPDF = (claims = [], companyName = 'FinTrack Ent
       <body>
         <div class="header">
           <div>
-            <h1 class="title">${companyName}</h1>
+            <h1 class="title">${safeCompanyName}</h1>
             <div class="subtitle">Approved Reimbursement Payroll Export Report (BR-15 Compliant)</div>
           </div>
           <div style="text-align: right;">
@@ -156,14 +167,14 @@ export const exportApprovedClaimsPDF = (claims = [], companyName = 'FinTrack Ent
               .map(
                 (c) => `
               <tr>
-                <td style="font-family: monospace; font-weight: 700;">${c.id}</td>
-                <td><strong>${c.employeeName}</strong><br><small style="color: #64748b">${c.department}</small></td>
-                <td>${c.category}</td>
-                <td>${c.title}</td>
-                <td>${c.submissionDate || c.expenseDate}</td>
-                <td>${c.costCenter || 'CC-CORP'}</td>
-                <td style="font-weight: 800; font-family: monospace;">₹${(c.amount || 0).toLocaleString('en-IN')}</td>
-                <td><span class="badge">${c.status}</span></td>
+                <td style="font-family: monospace; font-weight: 700;">${escapeHtml(c.id)}</td>
+                <td><strong>${escapeHtml(c.employeeName)}</strong><br><small style="color: #64748b">${escapeHtml(c.department)}</small></td>
+                <td>${escapeHtml(c.category)}</td>
+                <td>${escapeHtml(c.title)}</td>
+                <td>${escapeHtml(c.submissionDate || c.expenseDate)}</td>
+                <td>${escapeHtml(c.costCenter || 'CC-CORP')}</td>
+                <td style="font-weight: 800; font-family: monospace;">₹${(Number(c.amount) || 0).toLocaleString('en-IN')}</td>
+                <td><span class="badge">${escapeHtml(c.status)}</span></td>
               </tr>
             `
               )

@@ -6,13 +6,15 @@ import { Button } from '../common/Button';
 export const BudgetWidget = () => {
   const { budget, setCurrentView } = useApp();
 
-  const monthlyBudget = budget.monthlyBudget || 250000;
-  const spent = budget.spentThisMonth || 0;
-  const remaining = Math.max(0, monthlyBudget - spent);
-  const percentUtilized = Math.min(100, Math.round((spent / monthlyBudget) * 100));
+  const monthlyBudget = Number(budget.monthlyBudget) || 250000;
+  const spent = Number(budget.spentThisMonth) || 0;
+  const remaining = monthlyBudget - spent;
+  const isOverbudget = remaining < 0;
+  const percentUtilized = monthlyBudget > 0 ? Math.round((spent / monthlyBudget) * 100) : 0;
+  const displayProgressWidth = Math.min(100, Math.max(0, percentUtilized));
 
-  const isWarning = percentUtilized >= 80 && percentUtilized < 95;
-  const isCritical = percentUtilized >= 95;
+  const isWarning = percentUtilized >= 80 && percentUtilized < 100;
+  const isCritical = percentUtilized >= 100;
 
   let progressColor = 'var(--color-primary)';
   if (isWarning) progressColor = 'var(--status-pending-dot)';
@@ -76,7 +78,7 @@ export const BudgetWidget = () => {
           >
             <div
               style={{
-                width: `${percentUtilized}%`,
+                width: `${displayProgressWidth}%`,
                 height: '100%',
                 backgroundColor: progressColor,
                 borderRadius: 'var(--radius-full)',
@@ -127,8 +129,10 @@ export const BudgetWidget = () => {
                   : 'var(--status-approved-text)',
               }}
             >
-              {isCritical
-                ? 'Budget cap almost reached!'
+              {isOverbudget
+                ? 'Monthly budget exceeded!'
+                : isCritical
+                ? 'Budget cap reached (100%)'
                 : isWarning
                 ? '80% threshold crossed'
                 : 'Healthy spending trajectory'}
@@ -147,7 +151,9 @@ export const BudgetWidget = () => {
                 : 'var(--status-approved-text)',
             }}
           >
-            ₹{remaining.toLocaleString('en-IN')} left
+            {isOverbudget
+              ? `-₹${Math.abs(remaining).toLocaleString('en-IN')} deficit`
+              : `₹${remaining.toLocaleString('en-IN')} left`}
           </span>
         </div>
       </div>
