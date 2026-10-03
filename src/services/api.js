@@ -33,6 +33,19 @@ export const resolveApiBaseUrl = async () => {
   return activeBaseUrl;
 };
 
+const getAuthHeaders = () => {
+  try {
+    const raw = localStorage.getItem('fintrack_employer_auth_session');
+    if (raw) {
+      const session = JSON.parse(raw);
+      if (session?.token) {
+        return { Authorization: `Bearer ${session.token}` };
+      }
+    }
+  } catch (_) {}
+  return {};
+};
+
 export const api = {
   getBaseUrl: () => activeBaseUrl,
 
@@ -41,7 +54,11 @@ export const api = {
    */
   getClaims: async () => {
     await resolveApiBaseUrl();
-    const res = await fetch(`${activeBaseUrl}/claims`);
+    const res = await fetch(`${activeBaseUrl}/claims`, {
+      headers: {
+        ...getAuthHeaders(),
+      },
+    });
     if (!res.ok) {
       throw new Error(`Failed to fetch claims: ${res.status}`);
     }
@@ -58,6 +75,7 @@ export const api = {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
+        ...getAuthHeaders(),
       },
       body: JSON.stringify({
         status,
@@ -78,9 +96,16 @@ export const api = {
   /**
    * Fetch all company employees registered in database
    */
-  getEmployees: async () => {
+  getEmployees: async (companyId) => {
     await resolveApiBaseUrl();
-    const res = await fetch(`${activeBaseUrl}/employer/employees`);
+    const url = companyId
+      ? `${activeBaseUrl}/employer/employees?companyId=${encodeURIComponent(companyId)}`
+      : `${activeBaseUrl}/employer/employees`;
+    const res = await fetch(url, {
+      headers: {
+        ...getAuthHeaders(),
+      },
+    });
     if (!res.ok) {
       throw new Error(`Failed to fetch employees: ${res.status}`);
     }
@@ -233,23 +258,10 @@ export const api = {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        // If test OTP 123456 or 000000, accept locally
-        if (['123456', '000000', '999999'].includes(otp.toString().trim())) {
-          return {
-            token: 'mock-jwt-token-employer-' + Date.now(),
-            user: { email, name: name || 'Admin User', role: 'Head of Finance & Admin' },
-          };
-        }
         throw new Error(data.message || 'Invalid or expired verification code');
       }
       return data.data;
     } catch (err) {
-      if (['123456', '000000', '999999'].includes(otp.toString().trim())) {
-        return {
-          token: 'mock-jwt-token-employer-' + Date.now(),
-          user: { email, name: name || 'Admin User', role: 'Head of Finance & Admin' },
-        };
-      }
       throw err;
     }
   },
